@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "mqtt_client.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_adc/adc_oneshot.h"
@@ -16,15 +17,18 @@ static volatile bool wifi_connected = false;
 static void wifi_event_handler(void *, esp_event_base_t base, int32_t id, void *data)
 {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
-        ESP_LOGI(TAG, "[WiFi] ansluter...");
+        ESP_LOGI(TAG, "[WiFi] connecting...");
         esp_wifi_connect();
+    } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_CONNECTED) {
+        ESP_LOGI(TAG, "[WiFi] associated with access point, waiting for IP");
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+        auto *d = (wifi_event_sta_disconnected_t *)data;
         wifi_connected = false;
-        ESP_LOGW(TAG, "[WiFi] frånkopplad, försöker igen");
+        ESP_LOGW(TAG, "[WiFi] disconnected, reason=%d, retrying", d->reason);
         esp_wifi_connect();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         auto *e = (ip_event_got_ip_t *)data;
-        ESP_LOGI(TAG, "[WiFi] ansluten, IP=" IPSTR, IP2STR(&e->ip_info.ip));
+        ESP_LOGI(TAG, "[WiFi] connected, IP=" IPSTR, IP2STR(&e->ip_info.ip));
         wifi_connected = true;
     }
 }
@@ -57,9 +61,35 @@ static void wifi_init()
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
+static esp_mqtt_client_handle_t mqtt_client = nullptr;
+static volatile bool mqtt_connected = false;
+
+static void mqtt_event_handler(void *, esp_event_base_t, int32_t id, void *)
+{
+    if (id == MQTT_EVENT_CONNECTED) {
+        mqtt_connected = true;
+        ESP_LOGI(TAG, "[MQTT] connected");
+    } else if (id == MQTT_EVENT_DISCONNECTED) {
+        mqtt_connected = false;
+        ESP_LOGW(TAG, "[MQTT] disconnected, client reconnects automatically");
+    } else if (id == MQTT_EVENT_ERROR) {
+        ESP_LOGE(TAG, "[MQTT] error");
+    }
+}
+
+static void mqtt_init()
+{
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = CONFIG_MQTT_BROKER_URI;
+    mqtt_client = esp_mqtt_client_init(&cfg);
+    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, nullptr);
+    esp_mqtt_client_start(mqtt_client);
+}
+
 extern "C" void app_main(void)
 {
     wifi_init();
+    mqtt_init();
 
     adc_unit_t unit;
     adc_channel_t channel;
@@ -78,8 +108,17 @@ extern "C" void app_main(void)
     while (true) {
         int raw = 0;
         ESP_ERROR_CHECK(adc_oneshot_read(adc, channel, &raw));
-        ESP_LOGI(TAG, "raw=%d  procent=%.1f  wifi=%s", raw, raw / 4095.0f * 100.0f,
-                 wifi_connected ? "ok" : "nej");
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        float percent = raw / 4095.0f * 100.0f;
+
+        if (mqtt_connected) {
+            char payload[128];
+            snprintf(payload, sizeof(payload),
+                     "{\"sensorId\":\"room-a-pot-01\",\"value\":%.1f,\"unit\":\"%%\"}", percent);
+            esp_mqtt_client_publish(mqtt_client, "fastighet/rum-a/pot-01/data", payload, 0, 1, 0);
+            ESP_LOGI(TAG, "[PUB] %s", payload);
+        } else {
+            ESP_LOGW(TAG, "MQTT not connected (wifi=%s)", wifi_connected ? "ok" : "no");
+        }
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }

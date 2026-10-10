@@ -18,3 +18,5 @@ src/esp32/managed_components/
 __pycache__/
 *.log
 /CMakeLists.txt
+/dependecies.lock
+/dependencies.lock
