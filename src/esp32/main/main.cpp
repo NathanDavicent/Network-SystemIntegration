@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include "esp_sntp.h"
 #include "mqtt_client.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -86,10 +88,34 @@ static void mqtt_init()
     esp_mqtt_client_start(mqtt_client);
 }
 
+static void time_init()
+{
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);   // Stockholm time with DST
+    tzset();
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_init();
+}
+
+static bool iso_now(char *buf, size_t len)
+{
+    time_t now = time(nullptr);
+    if (now < 1700000000) return false;          // clock not synced yet
+    struct tm t;
+    localtime_r(&now, &t);
+    char base[24];
+    strftime(base, sizeof(base), "%Y-%m-%dT%H:%M:%S", &t);
+    char zone[8];
+    strftime(zone, sizeof(zone), "%z", &t);      // e.g. +0200
+    snprintf(buf, len, "%s%.3s:%s", base, zone, zone + 3);
+    return true;
+}
+
 extern "C" void app_main(void)
 {
     wifi_init();
     mqtt_init();
+    time_init();
 
     adc_unit_t unit;
     adc_channel_t channel;
@@ -110,14 +136,18 @@ extern "C" void app_main(void)
         ESP_ERROR_CHECK(adc_oneshot_read(adc, channel, &raw));
         float percent = raw / 4095.0f * 100.0f;
 
-        if (mqtt_connected) {
-            char payload[128];
+        char ts[40];
+        if (mqtt_connected && iso_now(ts, sizeof(ts))) {
+            char payload[160];
             snprintf(payload, sizeof(payload),
-                     "{\"sensorId\":\"room-a-pot-01\",\"value\":%.1f,\"unit\":\"%%\"}", percent);
+                     "{\"sensorId\":\"room-a-pot-01\",\"timestamp\":\"%s\",\"value\":%.1f,\"unit\":\"%%\"}",
+                     ts, percent);
             esp_mqtt_client_publish(mqtt_client, "fastighet/rum-a/pot-01/data", payload, 0, 1, 0);
             ESP_LOGI(TAG, "[PUB] %s", payload);
         } else {
-            ESP_LOGW(TAG, "MQTT not connected (wifi=%s)", wifi_connected ? "ok" : "no");
+            ESP_LOGW(TAG, "waiting (mqtt=%s, wifi=%s, time synced=%s)",
+                     mqtt_connected ? "ok" : "no", wifi_connected ? "ok" : "no",
+                     time(nullptr) > 1700000000 ? "yes" : "no");
         }
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
