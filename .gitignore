@@ -4,6 +4,10 @@
 passwd
 
 #ESP-IDF
+/build
+/sdkconfig
+/sdkconfig.old
+/managed_components/
 src/esp32/build
 src/esp32/sdkconfig
 src/esp32/sdkconfig.old
@@ -13,3 +17,4 @@ src/esp32/managed_components/
 .vscode/
 __pycache__/
 *.log
+/CMakeLists.txt

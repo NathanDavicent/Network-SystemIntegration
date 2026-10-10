@@ -1,0 +1,11 @@
+menu "IoT Configuration"
+
+    config WIFI_SSID
+        string "Wi-Fi SSID"
+        default ""
+
+    config WIFI_PASSWORD
+        string "Wi-Fi password"
+        default ""
+
+endmenu
