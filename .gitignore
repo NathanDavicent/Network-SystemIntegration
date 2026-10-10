@@ -1,0 +1,15 @@
+# Secrets
+.env
+*.key
+passwd
+
+#ESP-IDF
+src/esp32/build
+src/esp32/sdkconfig
+src/esp32/sdkconfig.old
+src/esp32/managed_components/
+
+# Misc
+.vscode/
+__pycache__/
+*.log
