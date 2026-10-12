@@ -20,3 +20,8 @@ __pycache__/
 /CMakeLists.txt
 /dependecies.lock
 /dependencies.lock
+.venv/
+/build/
+/managed_components/
+/sdkconfig
+/sdkconfig.old
