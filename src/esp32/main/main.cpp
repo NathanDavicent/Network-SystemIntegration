@@ -83,6 +83,8 @@ static void mqtt_init()
 {
     esp_mqtt_client_config_t cfg = {};
     cfg.broker.address.uri = CONFIG_MQTT_BROKER_URI;
+    cfg.credentials.username = CONFIG_MQTT_USERNAME;
+    cfg.credentials.authentication.password = CONFIG_MQTT_PASSWORD;
     mqtt_client = esp_mqtt_client_init(&cfg);
     esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, nullptr);
     esp_mqtt_client_start(mqtt_client);

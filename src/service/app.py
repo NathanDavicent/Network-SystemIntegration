@@ -12,6 +12,8 @@ log = logging.getLogger("iot")
 
 MQTT_HOST = os.environ.get("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
+MQTT_USER = os.environ.get("MQTT_USER", "")
+MQTT_PASS = os.environ.get("MQTT_PASS", "")
 API_KEY = os.environ.get("API_KEY", "")
 TOPIC = "fastighet/+/+/data"
 
@@ -29,6 +31,9 @@ def valid(d):
 
 
 def on_connect(c, userdata, flags, reason_code, properties=None):
+    if reason_code != 0:
+        log.error("MQTT connection refused (rc=%s)", reason_code)
+        return
     log.info("MQTT connected (rc=%s)", reason_code)
     c.subscribe(TOPIC, qos=1)
 
@@ -58,6 +63,8 @@ client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
+if MQTT_USER:
+    client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.reconnect_delay_set(1, 30)
 client.connect_async(MQTT_HOST, MQTT_PORT)
 client.loop_start()
