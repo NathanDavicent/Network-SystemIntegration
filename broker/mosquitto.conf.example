@@ -1,0 +1,8 @@
+# Mosquitto example config (no secrets).
+# Copy to C:\iot\mosquitto.conf and create the password file first:
+#   mosquitto_passwd -c C:\iot\passwd esp32
+#   mosquitto_passwd -b C:\iot\passwd service "<password>"
+
+listener 1883
+allow_anonymous false
+password_file C:/iot/passwd
