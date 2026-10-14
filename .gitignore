@@ -31,3 +31,4 @@ __pycache__/
 /sdkconfig.old
 /dependencies.lock
 /CMakeLists.txt
+.pytest_cache/
