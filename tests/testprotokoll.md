@@ -8,3 +8,4 @@
 | 4 | Ogiltig JSON | `mosquitto_pub ... -m "not json"` | `ERROR Invalid JSON`, `invalid` ökar i `/health` | OK |
 | 5 | Fel API-nyckel | `curl.exe http://localhost:5000/api/sensors` | 401 `unauthorized` | OK |
 | 6 | Anonym MQTT nekas | `mosquitto_pub -t test -m hej` utan inloggning | `Connection Refused: not authorised` | OK |
+| 7 | Enhetstester | `python -m pytest ..\..\tests -v` i `src\service` | 7 passed | OK (7 passed) |
