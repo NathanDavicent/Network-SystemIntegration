@@ -5,19 +5,23 @@
 | # | Risk | Åtgärd |
 |---|------|--------|
 | 1 | Obehörig ansluter till MQTT-brokern och läser eller skickar data | `allow_anonymous false` med användare och lösenord (`esp32`, `service`) i Mosquitto-lösenordsfil |
-| 2 | Obehörig läser sensordata via API:et | API-nyckel i headern `X-API-Key`, obehöriga anrop loggas och får 401 |
-| 3 | Felaktig eller skadlig data matas in | Tjänsten validerar JSON och fält, ogiltiga meddelanden förkastas, loggas och räknas |
-| 4 | Hemligheter läcker via versionshanteringen | Wi-Fi- och MQTT-uppgifter ligger i `sdkconfig` och miljövariabler, aldrig i git |
+| 2 | Avlyssning av MQTT-trafik (inklusive lösenord) på nätverket | TLS på port 8883. ESP32 verifierar brokern med ett inbäddat CA-certifikat. Port 1883 lyssnar bara på localhost |
+| 3 | Obehörig läser sensordata via API:et | API-nyckel i headern `X-API-Key`, obehöriga anrop loggas och får 401 |
+| 4 | Felaktig eller skadlig data matas in | Tjänsten validerar JSON och fält, ogiltiga meddelanden förkastas, loggas och räknas |
+| 5 | Hemligheter läcker via versionshanteringen | Wi-Fi- och MQTT-uppgifter ligger i `sdkconfig` och miljövariabler, privata nycklar och `passwd` ligger utanför repot. Bara `ca.crt` (publikt) checkas in |
 
 ## Hantering av känslig konfiguration
 
 - Wi-Fi SSID/lösenord och MQTT-uppgifter sätts via `idf.py menuconfig` och lagras i `src/esp32/sdkconfig`, som är i `.gitignore`.
 - Tjänstens uppgifter (`MQTT_USER`, `MQTT_PASS`, `API_KEY`) läses från miljövariabler.
-- `passwd` (brokerns lösenordsfil) och `*.key` ligger utanför repot eller i `.gitignore`. Bara `mosquitto.conf.example` checkas in.
+- `passwd` och `*.key` ligger i `C:\iot` och checkas aldrig in.
 
 ## Kvarvarande begränsningar
 
-- MQTT går över okrypterad port 1883, så lösenordet skickas i klartext på det lokala nätverket. Förbättring: TLS på port 8883 med CA-certifikat på ESP32.
+- Det självsignerade CA-certifikatet gäller 365 dagar och måste då skapas om.
+- Certifikatet är knutet till brokerns IP-adress (`192.168.50.254`). Ändras IP:n måste certifikatet utfärdas på nytt.
+- Privata nycklar ligger okrypterade på brokerdatorn.
+- Lokala lyssnaren på 1883 (tjänst till broker) är okrypterad, men nås bara från samma dator.
 - API:et använder HTTP och en delad nyckel, utan användarroller eller rate limiting.
 - Flasks utvecklingsserver används, inte en produktionsserver.
-- Lösenord i testmiljön är enkla och ska bytas före skarp drift.
+- Testlösenord är enkla och ska bytas före skarp drift.
