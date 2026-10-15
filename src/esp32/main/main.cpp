@@ -79,12 +79,15 @@ static void mqtt_event_handler(void *, esp_event_base_t, int32_t id, void *)
     }
 }
 
+extern const char ca_pem_start[] asm("_binary_ca_crt_start");
+
 static void mqtt_init()
 {
     esp_mqtt_client_config_t cfg = {};
     cfg.broker.address.uri = CONFIG_MQTT_BROKER_URI;
     cfg.credentials.username = CONFIG_MQTT_USERNAME;
     cfg.credentials.authentication.password = CONFIG_MQTT_PASSWORD;
+    cfg.broker.verification.certificate = ca_pem_start;
     mqtt_client = esp_mqtt_client_init(&cfg);
     esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, nullptr);
     esp_mqtt_client_start(mqtt_client);
